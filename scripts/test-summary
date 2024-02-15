@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+#=========================================================================
+# test-summary [options] <build-dir>
+#=========================================================================
+#
+#  -h --help     Display this message
+#  -v --verbose  Verbose mode
+#
+# Create a summary of the unit test results. Search in the given build
+# directory for all .tap files. Use these .tap files to determine which
+# tests passed and which tests failed.
+#
+# Author : Christopher Batten
+# Date   : September 13, 2013
+#
+
+import argparse
+import sys
+import re
+import fnmatch
+import os
+
+#-------------------------------------------------------------------------
+# Command line processing
+#-------------------------------------------------------------------------
+
+class ArgumentParserWithCustomError(argparse.ArgumentParser):
+  def error( self, msg = "" ):
+    if ( msg ): print("\n ERROR: %s" % msg)
+    print("")
+    file = open( sys.argv[0] )
+    for ( lineno, line ) in enumerate( file ):
+      if ( line[0] != '#' ): sys.exit(msg != "")
+      if ( (lineno == 2) or (lineno >= 4) ): print( line[1:].rstrip("\n") )
+
+def parse_cmdline():
+  p = ArgumentParserWithCustomError( add_help=False )
+  p.add_argument( "-v", "--verbose", action="store_true" )
+  p.add_argument( "-h", "--help",    action="store_true" )
+  p.add_argument( "build_dir" )
+  opts = p.parse_args()
+  if opts.help: p.error()
+  return opts
+
+#-------------------------------------------------------------------------
+# Main
+#-------------------------------------------------------------------------
+
+def main():
+  opts = parse_cmdline()
+
+  print ""
+
+  ok_pattern     = re.compile(r'^ok')
+  not_ok_pattern = re.compile(r'^not ok')
+
+  # Recursively find all .tap files in the build directory
+  # https://stackoverflow.com/questions/2186525
+
+  tap_filenames = []
+  for root, dirnames, filenames in os.walk(opts.build_dir):
+      for filename in fnmatch.filter(filenames, '*.tap'):
+          tap_filenames.append(os.path.join(root, filename))
+
+  # Grep in each .tap file for "ok" and "not ok"
+
+  any_failures = False
+  for tap_filename in tap_filenames:
+
+    num_passed = 0
+    num_failed = 0
+
+    for line in open(tap_filename):
+      if ok_pattern.match(line):
+        num_passed += 1
+      if not_ok_pattern.match(line):
+        num_failed += 1
+
+    if num_failed > 0:
+      any_failures = True
+      print " [ \033[31mFAILED\033[0m ] ",
+    else:
+      print " [ \033[32mpassed\033[0m ] ",
+
+    print "P:{:3} F:{:3}  {}".format( num_passed, num_failed, tap_filename )
+
+  print ""
+
+  # Exit with a non-zero exit status on any failures so travis knows
+
+  if any_failures:
+    sys.exit(1)
+
+main()
+
