@@ -31,8 +31,9 @@ double __double_expr0 = 0.0, __double_expr1 = 0.0;
 char* __ece2400_get_file_name( char *full_path )
 {
   int len = strlen( full_path ), start_pos = 0;
+  int i;
 
-  for ( int i = len-1; i >= 0; i-- )
+  for (i = len-1; i >= 0; i-- )
     if ( full_path[i] == '/' ) {
       start_pos = i+1;
       break;
